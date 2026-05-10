@@ -2,15 +2,11 @@ import pandas as pd
 import plotly.graph_objects as go
 import json
 
-# --- LINK-UL TĂU GOOGLE SHEETS ---
+# 1. Incarcare date din Google Sheets
 URL_SHEETS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGWQb5ZLpLGDwl6mjeNAfzhUrl3GShXab_ePVSU8tj-9aOAwStGMjEutsErHnezkOpIaGA4maO_HYU/pub?output=csv"
-
-# 1. Incarcare date (acum din Link)
-df = pd.read_csv(URL_SHEETS)
 
 def parse_coords(coord_str):
     try:
-        # Curățăm string-ul în caz că are spații sau caractere ciudate de la importul CSV
         coord_str = str(coord_str).strip()
         if "," in coord_str:
             lat, lon = map(float, coord_str.split(','))
@@ -20,12 +16,14 @@ def parse_coords(coord_str):
     except:
         return None, None
 
-# Verificăm coloanele Coord_Start și Coord_Ziel din Sheets
+df = pd.read_csv(URL_SHEETS)
+
+# Verificare coloane coordonate (K si L)
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
 
-# Dicționar centralizat
+# Dicționar centralizat (Codul tău original)
 locations_data = {}
 for i, row in df.iterrows():
     idx_str = str(i)
@@ -40,7 +38,7 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE START ---
+# --- GRUPARE START (Codul tău original) ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
@@ -50,7 +48,7 @@ for (lat, lon), group in grouped_starts:
     s_texts.append(f"<b>Punct Start: {loc_name}</b><br>Curse care pleacă de aici: {len(group)}")
     s_ids.append(list(map(str, group.index.tolist())))
 
-# --- GRUPARE ZIEL ---
+# --- GRUPARE ZIEL (Codul tău original) ---
 grouped_ziels = df.groupby(['ziel_lat', 'ziel_lon'])
 z_lons, z_lats, z_texts, z_ids = [], [], [], []
 for (lat, lon), group in grouped_ziels:
@@ -77,10 +75,10 @@ fig.update_layout(
     showlegend=True, margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
 )
 
-# Schimbat numele fișierului în index.html pentru ca GitHub să îl poată afișa pe link
 html_content = fig.to_html(include_plotlyjs='cdn', full_html=True, config={'scrollZoom': True})
 json_coords = json.dumps(locations_data)
 
+# Scriptul de interactivitate (PANOU + UNDO) - EXACT cel trimis de tine
 script_inject = f"""
 <style>
     #custom-route-panel {{
@@ -182,8 +180,6 @@ script_inject = f"""
 </script>
 """
 
-# GitHub Pages are nevoie de index.html
+# IMPORTANT: Salvam ca index.html pentru GitHub Pages
 with open("index.html", "w", encoding="utf-8") as f:
     f.write(html_content.replace('</body>', script_inject + '</body>'))
-
-print("Succes! Harta cu sistemul tau de UNDE si trasee a fost generata.")
