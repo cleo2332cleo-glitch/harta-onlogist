@@ -1,0 +1,26 @@
+name: Update Harta Onlogist
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Rulează automat la fiecare 30 de minute
+  workflow_dispatch:      # Îți permite să dai "Start" manual de pe telefon
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout cod
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Instalare librarii
+        run: pip install pandas plotly
+      - name: Executie Script Harta
+        run: python harta.py
+      - name: Salvare Harta Generata
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add index.html
+          git commit -m "Update harta automata" || echo "Nu sunt modificari de salvat"
+          git push
