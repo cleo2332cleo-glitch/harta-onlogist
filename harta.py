@@ -20,12 +20,10 @@ def parse_coords(coord_str):
 
 df = pd.read_csv(URL_SHEETS)
 
-# Verificăm coloanele Coord_Start și Coord_Ziel
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
 
-# Dicționarul tău (PĂSTRAT EXACT)
 locations_data = {}
 for i, row in df.iterrows():
     idx_str = str(i)
@@ -40,14 +38,14 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE (Codul tău original) ---
+# --- GRUPARE ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
     loc_name = str(group.iloc[0]['Startort']).split(',')[0]
     s_lons.append(lon)
     s_lats.append(lat)
-    s_texts.append(f"<b>Punct Start: {loc_name}</b><br>Curse: {len(group)}")
+    s_texts.append(f"<b>{loc_name}</b>")
     s_ids.append(list(map(str, group.index.tolist())))
 
 grouped_ziels = df.groupby(['ziel_lat', 'ziel_lon'])
@@ -56,18 +54,19 @@ for (lat, lon), group in grouped_ziels:
     loc_name = str(group.iloc[0]['Zielort']).split(',')[0]
     z_lons.append(lon)
     z_lats.append(lat)
-    z_texts.append(f"<b>Destinatie: {loc_name}</b><br>Curse: {len(group)}")
+    z_texts.append(f"<b>{loc_name}</b>")
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
+# BULINE MICI (Scăzute cu mai mult de jumătate)
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=s_lons, lat=s_lats,
-    marker={'size': 14, 'color': 'black', 'opacity': 0.9},
+    marker={'size': 10, 'color': 'black', 'opacity': 0.8},
     text=s_texts, hoverinfo='text', customdata=s_ids
 ))
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=z_lons, lat=z_lats,
-    marker={'size': 12, 'color': 'red', 'opacity': 0.8},
+    marker={'size': 8, 'color': 'red', 'opacity': 0.7},
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
@@ -76,38 +75,55 @@ fig.update_layout(
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
 )
 
-# Includem toată biblioteca Plotly direct în fișier (ca în CMD)
-html_content = fig.to_html(include_plotlyjs=True, full_html=True)
+html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'responsive': True})
 json_coords = json.dumps(locations_data)
 
-# Injectăm Panoul și Logica de Click (EXACT CUM LE-AI AVUT)
+# CSS Versiunea "MINI"
 script_inject = f"""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
+    /* Panou discret la bază */
     #custom-route-panel {{
-        display: none; position: absolute; top: 20px; right: 20px; width: 340px;
-        background: white; border: 2px solid #2c3e50; border-radius: 8px;
-        padding: 15px; z-index: 10000; box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: none; position: fixed; 
+        bottom: 5px; left: 5px; right: 5px;
+        background: white; border: 1px solid #ccc; border-radius: 8px;
+        padding: 8px; z-index: 999999; box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
+        font-family: sans-serif;
     }}
-    .panel-btn {{ cursor: pointer; padding: 5px 12px; background: #2c3e50; color: white; border: none; border-radius: 4px; }}
-    .undo-btn {{ background: #e67e22 !important; }}
+    .panel-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
+    
+    /* Butoane compacte */
+    .mob-btn {{ 
+        cursor: pointer; padding: 6px 10px; 
+        background: #2c3e50; color: white; border: none; 
+        border-radius: 4px; font-weight: bold; font-size: 12px;
+    }}
+    .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; }}
+    
+    /* Detalii cursă finuțe */
+    #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
+    .highlight-id {{ color: #00cc44; font-weight: bold; }}
+    .undo-mob {{ background: #e67e22 !important; }}
+    
+    .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
 <div id="custom-route-panel">
-    <span style="float:right; cursor:pointer; color:red; font-weight:bold;" onclick="closePanel()">✖</span>
-    <button class="panel-btn undo-btn" onclick="undoLastLine()">UNDO LINE</button>
-    <div id="panel-content" style="margin: 15px 0; font-size: 13px;"></div>
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <button class="panel-btn" onclick="prevRoute()">&#8592; Prev</button>
-        <strong id="panel-counter"></strong>
-        <button class="panel-btn" onclick="nextRoute()">Next &#8594;</button>
+    <div class="panel-header">
+        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
+        <span class="close-btn" onclick="closePanel()">×</span>
+    </div>
+    <div id="panel-content"></div>
+    <div class="panel-footer">
+        <button class="mob-btn" onclick="prevRoute()">PREV</button>
+        <span id="panel-counter" style="font-size: 12px; font-weight: bold;"></span>
+        <button class="mob-btn" onclick="nextRoute()">NEXT</button>
     </div>
 </div>
 
 <script>
     var coords = {json_coords};
     
-    // Așteptăm ca totul să fie încărcat (esențial pentru GitHub)
     window.onload = function() {{
         var plot = document.getElementsByClassName('plotly-graph-div')[0];
         var currentGroup = [];
@@ -120,7 +136,7 @@ script_inject = f"""
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
                 lon: [r.start[0], r.ziel[0]], lat: [r.start[1], r.ziel[1]],
-                line: {{width: 4, color: '#00cc44'}}, marker: {{size: 8, color: '#00cc44'}},
+                line: {{width: 3, color: '#00cc44'}}, marker: {{size: 6, color: '#00cc44'}},
                 hoverinfo: 'none'
             }};
             Plotly.addTraces(plot, newLine);
@@ -139,13 +155,11 @@ script_inject = f"""
             var id = currentGroup[currentIndex];
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
-                "<b>ID Cursă:</b> " + r.id_afisat + "<br>" +
-                "<b>AG:</b> " + r.ag + "<br>" + 
-                "<b>De la:</b> " + r.startort + "<br>" +
-                "<b>Către:</b> " + r.zielort + "<br>" +
+                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
                 "<b>Preț:</b> " + r.pret + "<br>" +
-                "<b>Livrare:</b> " + r.livrare;
-            document.getElementById('panel-counter').innerText = (currentIndex + 1) + " / " + currentGroup.length;
+                "<b>Start:</b> " + r.startort + "<br>" +
+                "<b>Dest:</b> " + r.zielort;
+            document.getElementById('panel-counter').innerText = (currentIndex + 1) + "/" + currentGroup.length;
             drawLine();
         }};
 
