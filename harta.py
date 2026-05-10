@@ -20,12 +20,10 @@ def parse_coords(coord_str):
 
 df = pd.read_csv(URL_SHEETS)
 
-# Verificăm coloanele Coord_Start și Coord_Ziel
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
 
-# Dicționarul tău (PĂSTRAT EXACT)
 locations_data = {}
 for i, row in df.iterrows():
     idx_str = str(i)
@@ -47,7 +45,7 @@ for (lat, lon), group in grouped_starts:
     loc_name = str(group.iloc[0]['Startort']).split(',')[0]
     s_lons.append(lon)
     s_lats.append(lat)
-    s_texts.append(f"<b>Punct Start: {loc_name}</b><br>Curse: {len(group)}")
+    s_texts.append(f"<b>{loc_name}</b>")
     s_ids.append(list(map(str, group.index.tolist())))
 
 grouped_ziels = df.groupby(['ziel_lat', 'ziel_lon'])
@@ -56,19 +54,19 @@ for (lat, lon), group in grouped_ziels:
     loc_name = str(group.iloc[0]['Zielort']).split(',')[0]
     z_lons.append(lon)
     z_lats.append(lat)
-    z_texts.append(f"<b>Destinatie: {loc_name}</b><br>Curse: {len(group)}")
+    z_texts.append(f"<b>{loc_name}</b>")
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
-# AM MICȘORAT BULINELE (Negru la 22, Roșu la 18)
+# BULINE MICI (Scăzute cu mai mult de jumătate)
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=s_lons, lat=s_lats,
-    marker={'size': 22, 'color': 'black', 'opacity': 0.85},
+    marker={'size': 10, 'color': 'black', 'opacity': 0.8},
     text=s_texts, hoverinfo='text', customdata=s_ids
 ))
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=z_lons, lat=z_lats,
-    marker={'size': 18, 'color': 'red', 'opacity': 0.75},
+    marker={'size': 8, 'color': 'red', 'opacity': 0.7},
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
@@ -77,61 +75,48 @@ fig.update_layout(
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
 )
 
-# Viewport și config păstrate
-html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True})
+html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'responsive': True})
 json_coords = json.dumps(locations_data)
 
-# CSS Radical - Versiunea MICȘORATĂ
+# CSS Versiunea "MINI"
 script_inject = f"""
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
-    /* Panoul tip "Bottom Sheet" MICȘORAT */
+    /* Panou discret la bază */
     #custom-route-panel {{
         display: none; position: fixed; 
-        bottom: 0; left: 2.5%; /* Mai aproape de margini */
-        width: 95%; max-width: 420px; /* Panou mai ingust */
-        background: white; border-top: 3px solid #2c3e50; border-radius: 15px 15px 0 0; /* Mai putin rotunjit */
-        padding: 12px; /* Mai putin padding */
-        z-index: 999999; box-shadow: 0px -8px 25px rgba(0,0,0,0.4);
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        box-sizing: border-box;
+        bottom: 5px; left: 5px; right: 5px;
+        background: white; border: 1px solid #ccc; border-radius: 8px;
+        padding: 8px; z-index: 999999; box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
+        font-family: sans-serif;
     }}
-    /* Header MICȘORAT */
-    .panel-header-row {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee; }}
+    .panel-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
     
-    /* BUTOANE MAI MICI PENTRU MOBILE */
+    /* Butoane compacte */
     .mob-btn {{ 
-        cursor: pointer; 
-        padding: 12px 18px; /* Padding mai mic (era 16x24) */
+        cursor: pointer; padding: 6px 10px; 
         background: #2c3e50; color: white; border: none; 
-        border-radius: 8px; font-weight: bold; 
-        font-size: 14px; /* Font mai mic (era 16) */
-        min-width: 70px; text-align: center;
+        border-radius: 4px; font-weight: bold; font-size: 12px;
     }}
-    .close-btn {{ color: red; font-size: 28px; font-weight: bold; cursor: pointer; padding: 0 8px; }}
+    .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; }}
     
-    /* Text MICȘORAT pentru detalii */
-    #panel-content {{ 
-        margin: 15px 0; font-size: 15px; /* Font mai mic (era 17) */
-        line-height: 1.5; color: #111; 
-    }}
-    #panel-content b {{ font-weight: 700; color: #444; }}
-    .highlight-id {{ color: #00cc44; font-weight: 900; font-size: 1.05em; }}
+    /* Detalii cursă finuțe */
+    #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
+    .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .undo-mob {{ background: #e67e22 !important; }}
     
-    /* Footer MICȘORAT */
-    .panel-footer-row {{ display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }}
+    .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
 <div id="custom-route-panel">
-    <div class="panel-header-row">
-        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO LINE</button>
-        <span class="close-btn" onclick="closePanel()">✖</span>
+    <div class="panel-header">
+        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
+        <span class="close-btn" onclick="closePanel()">×</span>
     </div>
     <div id="panel-content"></div>
-    <div class="panel-footer-row">
+    <div class="panel-footer">
         <button class="mob-btn" onclick="prevRoute()">PREV</button>
-        <strong id="panel-counter" style="font-size: 16px;"></strong>
+        <span id="panel-counter" style="font-size: 12px; font-weight: bold;"></span>
         <button class="mob-btn" onclick="nextRoute()">NEXT</button>
     </div>
 </div>
@@ -148,11 +133,10 @@ script_inject = f"""
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
-            // Linii puțin mai subțiri și markere de linie mai mici
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
                 lon: [r.start[0], r.ziel[0]], lat: [r.start[1], r.ziel[1]],
-                line: {{width: 5, color: '#00cc44'}}, marker: {{size: 10, color: '#00cc44'}},
+                line: {{width: 3, color: '#00cc44'}}, marker: {{size: 6, color: '#00cc44'}},
                 hoverinfo: 'none'
             }};
             Plotly.addTraces(plot, newLine);
@@ -171,13 +155,11 @@ script_inject = f"""
             var id = currentGroup[currentIndex];
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
-                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span><br>" +
-                "<b>AG:</b> " + r.ag + "<br>" + 
-                "<b>De la:</b> " + r.startort + "<br>" +
-                "<b>Către:</b> " + r.zielort + "<br>" +
-                "<b>Preț:</b> <b>" + r.pret + "</b><br>" +
-                "<b>Livrare:</b> " + r.livrare;
-            document.getElementById('panel-counter').innerText = (currentIndex + 1) + " / " + currentGroup.length;
+                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
+                "<b>Preț:</b> " + r.pret + "<br>" +
+                "<b>Start:</b> " + r.startort + "<br>" +
+                "<b>Dest:</b> " + r.zielort;
+            document.getElementById('panel-counter').innerText = (currentIndex + 1) + "/" + currentGroup.length;
             drawLine();
         }};
 
