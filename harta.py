@@ -60,15 +60,15 @@ for (lat, lon), group in grouped_ziels:
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
-# AM MARIT GIGANTIC BULINELE (de la 22 la 30)
+# AM MICȘORAT BULINELE (Negru la 22, Roșu la 18)
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=s_lons, lat=s_lats,
-    marker={'size': 30, 'color': 'black', 'opacity': 0.85},
+    marker={'size': 22, 'color': 'black', 'opacity': 0.85},
     text=s_texts, hoverinfo='text', customdata=s_ids
 ))
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=z_lons, lat=z_lats,
-    marker={'size': 26, 'color': 'red', 'opacity': 0.75},
+    marker={'size': 18, 'color': 'red', 'opacity': 0.75},
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
@@ -77,49 +77,50 @@ fig.update_layout(
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
 )
 
-# Adaugam Viewport pentru mobil si config de scroll
+# Viewport și config păstrate
 html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True})
 json_coords = json.dumps(locations_data)
 
-# CSS Radical pentru experienta de Aplicatie APK (Bottom Sheet)
+# CSS Radical - Versiunea MICȘORATĂ
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <style>
-    /* Panoul tip "Bottom Sheet" - Apare de jos in sus */
+    /* Panoul tip "Bottom Sheet" MICȘORAT */
     #custom-route-panel {{
         display: none; position: fixed; 
-        bottom: 0; left: 5%; /* Centrat pe orizontala */
-        width: 90%; max-width: 500px; /* Latime mare, dar controlata */
-        background: white; border-top: 4px solid #2c3e50; border-radius: 20px 20px 0 0; /* Colturile de sus rotunjite */
-        padding: 20px; z-index: 999999; box-shadow: 0px -10px 30px rgba(0,0,0,0.5);
+        bottom: 0; left: 2.5%; /* Mai aproape de margini */
+        width: 95%; max-width: 420px; /* Panou mai ingust */
+        background: white; border-top: 3px solid #2c3e50; border-radius: 15px 15px 0 0; /* Mai putin rotunjit */
+        padding: 12px; /* Mai putin padding */
+        z-index: 999999; box-shadow: 0px -8px 25px rgba(0,0,0,0.4);
         font-family: 'Segoe UI', system-ui, sans-serif;
         box-sizing: border-box;
     }}
-    /* Header-ul panoului, cu Undo si Close */
-    .panel-header-row {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }}
+    /* Header MICȘORAT */
+    .panel-header-row {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eee; }}
     
-    /* BUTOANE GIGANTICE PENTRU MOBILE */
+    /* BUTOANE MAI MICI PENTRU MOBILE */
     .mob-btn {{ 
         cursor: pointer; 
-        padding: 16px 24px; /* Extrem de inalte pentru degete */
+        padding: 12px 18px; /* Padding mai mic (era 16x24) */
         background: #2c3e50; color: white; border: none; 
-        border-radius: 10px; font-weight: bold; 
-        font-size: 16px; /* Text mare pe buton */
-        min-width: 80px; text-align: center;
+        border-radius: 8px; font-weight: bold; 
+        font-size: 14px; /* Font mai mic (era 16) */
+        min-width: 70px; text-align: center;
     }}
-    .close-btn {{ color: red; font-size: 32px; font-weight: bold; cursor: pointer; padding: 0 10px; }}
+    .close-btn {{ color: red; font-size: 28px; font-weight: bold; cursor: pointer; padding: 0 8px; }}
     
-    /* Text mare pentru detalii */
+    /* Text MICȘORAT pentru detalii */
     #panel-content {{ 
-        margin: 20px 0; font-size: 17px; /* Text clar, citibil usor */
-        line-height: 1.6; color: #111; 
+        margin: 15px 0; font-size: 15px; /* Font mai mic (era 17) */
+        line-height: 1.5; color: #111; 
     }}
     #panel-content b {{ font-weight: 700; color: #444; }}
-    .highlight-id {{ color: #00cc44; font-weight: 900; font-size: 1.1em; }}
+    .highlight-id {{ color: #00cc44; font-weight: 900; font-size: 1.05em; }}
     .undo-mob {{ background: #e67e22 !important; }}
     
-    /* Footer-ul cu Prev/Next/Counter */
-    .panel-footer-row {{ display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }}
+    /* Footer MICȘORAT */
+    .panel-footer-row {{ display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }}
 </style>
 
 <div id="custom-route-panel">
@@ -130,7 +131,7 @@ script_inject = f"""
     <div id="panel-content"></div>
     <div class="panel-footer-row">
         <button class="mob-btn" onclick="prevRoute()">PREV</button>
-        <strong id="panel-counter" style="font-size: 18px;"></strong>
+        <strong id="panel-counter" style="font-size: 16px;"></strong>
         <button class="mob-btn" onclick="nextRoute()">NEXT</button>
     </div>
 </div>
@@ -147,11 +148,11 @@ script_inject = f"""
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
-            // Linii mai groase si markere de linie mai mari
+            // Linii puțin mai subțiri și markere de linie mai mici
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
                 lon: [r.start[0], r.ziel[0]], lat: [r.start[1], r.ziel[1]],
-                line: {{width: 6, color: '#00cc44'}}, marker: {{size: 12, color: '#00cc44'}},
+                line: {{width: 5, color: '#00cc44'}}, marker: {{size: 10, color: '#00cc44'}},
                 hoverinfo: 'none'
             }};
             Plotly.addTraces(plot, newLine);
@@ -188,7 +189,6 @@ script_inject = f"""
             var ids = data.points[0].customdata;
             if(Array.isArray(ids)) {{
                 currentGroup = ids; currentIndex = 0;
-                // Afisam panoul tip bottom sheet
                 document.getElementById('custom-route-panel').style.display = 'block';
                 updatePanel();
             }}
