@@ -69,13 +69,21 @@ fig.add_trace(go.Scattermapbox(
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
-# showlegend=False scoate tabelul cu trace-uri din dreapta
 fig.update_layout(
     mapbox={'style': "carto-positron", 'center': {'lon': 10.45, 'lat': 51.16}, 'zoom': 6},
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event', showlegend=False
 )
 
-html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'responsive': True})
+# ACTIVARE ZOOM CU MOUSE SI TOUCH
+html_content = fig.to_html(
+    include_plotlyjs=True, 
+    full_html=True, 
+    config={
+        'scrollZoom': True,      # Permite zoom cu rotita mouse-ului
+        'responsive': True,      # Se adapteaza la ecran
+        'displayModeBar': False  # Ascunde bara de unelte pentru un aspect curat
+    }
+)
 json_coords = json.dumps(locations_data)
 
 # CSS Versiunea "MINI" (Păstrată neatinsă)
@@ -98,7 +106,7 @@ script_inject = f"""
     .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; }}
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
-    .highlight-ag {{ color: #007bff; font-weight: bold; }} /* Culoare albastra pentru AG */
+    .highlight-ag {{ color: #007bff; font-weight: bold; }}
     .undo-mob {{ background: #e67e22 !important; }}
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
