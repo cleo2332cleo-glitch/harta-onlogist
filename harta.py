@@ -9,21 +9,23 @@ def parse_coords(coord_str):
     try:
         coord_str = str(coord_str).strip()
         if "," in coord_str:
-            lat, lon = map(float, coord_str.split(','))
+            parts = coord_str.split(',')
+            lat, lon = float(parts[0].strip()), float(parts[1].strip())
         else:
-            lon, lat = map(float, coord_str.split())
+            parts = coord_str.split()
+            lon, lat = float(parts[0].strip()), float(parts[1].strip())
         return lon, lat
     except:
         return None, None
 
 df = pd.read_csv(URL_SHEETS)
 
-# Verificare coloane coordonate
+# Verificăm coloanele Coord_Start și Coord_Ziel
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
 
-# Dicționarul tău
+# Dicționarul tău (PĂSTRAT EXACT)
 locations_data = {}
 for i, row in df.iterrows():
     idx_str = str(i)
@@ -38,7 +40,7 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE (Codul tău) ---
+# --- GRUPARE ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
@@ -58,48 +60,66 @@ for (lat, lon), group in grouped_ziels:
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
+# AM MARIT SIZE LA MARKERE (de la 14 la 22) pentru deget
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=s_lons, lat=s_lats,
-    marker={'size': 14, 'color': 'black'},
+    marker={'size': 22, 'color': 'black', 'opacity': 0.9},
     text=s_texts, hoverinfo='text', customdata=s_ids
 ))
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=z_lons, lat=z_lats,
-    marker={'size': 12, 'color': 'red'},
+    marker={'size': 18, 'color': 'red', 'opacity': 0.8},
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
 fig.update_layout(
-    mapbox={'style': "carto-positron", 'center': {'lon': 10, 'lat': 51}, 'zoom': 5},
+    mapbox={'style': "carto-positron", 'center': {'lon': 10.45, 'lat': 51.16}, 'zoom': 6},
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
 )
 
-# AICI E CHEIA: Fortam Plotly sa incarce scriptul de baza
-html_content = fig.to_html(include_plotlyjs=True, full_html=True)
+html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True})
 json_coords = json.dumps(locations_data)
 
-# Injectam stilul si panoul tau
+# CSS actualizat pentru mobil
 script_inject = f"""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
     #custom-route-panel {{
-        display: none; position: absolute; top: 10px; right: 10px; width: 300px;
-        background: white; border: 2px solid #2c3e50; border-radius: 8px;
-        padding: 10px; z-index: 99999; box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
+        display: none; position: absolute; 
+        top: 10px; right: 10px; 
+        width: 90%; max-width: 350px; /* Latime mai mare pe mobil */
+        background: white; border: 2px solid #2c3e50; border-radius: 12px;
+        padding: 15px; z-index: 10000; box-shadow: 0px 5px 20px rgba(0,0,0,0.4);
+        font-family: 'Segoe UI', sans-serif;
     }}
-    .panel-btn {{ cursor: pointer; padding: 5px; background: #2c3e50; color: white; border: none; }}
+    .panel-header-row {{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }}
+    /* Butoane mai inalte pentru degete groase */
+    .panel-btn {{ 
+        cursor: pointer; padding: 10px 18px; 
+        background: #2c3e50; color: white; border: none; 
+        border-radius: 6px; font-weight: bold; font-size: 14px;
+    }}
+    .undo-btn {{ background: #e67e22 !important; }}
+    #panel-content {{ margin: 15px 0; font-size: 15px; line-height: 1.6; color: #222; }}
+    .close-x {{ color: red; font-size: 24px; font-weight: bold; cursor: pointer; padding: 0 5px; }}
 </style>
+
 <div id="custom-route-panel">
-    <span style="float:right; cursor:pointer;" onclick="closePanel()">✖</span>
-    <button class="panel-btn" onclick="undoLastLine()">UNDO</button>
-    <div id="panel-content" style="margin-top:10px;"></div>
-    <div style="margin-top:10px;">
-        <button class="panel-btn" onclick="prevRoute()">PREV</button>
-        <span id="panel-counter"></span>
-        <button class="panel-btn" onclick="nextRoute()">NEXT</button>
+    <div class="panel-header-row">
+        <button class="panel-btn undo-btn" onclick="undoLastLine()">UNDO LINE</button>
+        <span class="close-x" onclick="closePanel()">✖</span>
+    </div>
+    <div id="panel-content"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 10px;">
+        <button class="panel-btn" onclick="prevRoute()">&#8592; Prev</button>
+        <strong id="panel-counter" style="font-size: 16px;"></strong>
+        <button class="panel-btn" onclick="nextRoute()">Next &#8594;</button>
     </div>
 </div>
+
 <script>
     var coords = {json_coords};
+    
     window.onload = function() {{
         var plot = document.getElementsByClassName('plotly-graph-div')[0];
         var currentGroup = [];
@@ -109,11 +129,13 @@ script_inject = f"""
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
-            Plotly.addTraces(plot, {{
+            var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
                 lon: [r.start[0], r.ziel[0]], lat: [r.start[1], r.ziel[1]],
-                line: {{width: 4, color: '#00cc44'}}, marker: {{size: 8, color: '#00cc44'}}
-            }});
+                line: {{width: 5, color: '#00cc44'}}, marker: {{size: 10, color: '#00cc44'}},
+                hoverinfo: 'none'
+            }};
+            Plotly.addTraces(plot, newLine);
             lineTraces.push(plot.data.length - 1);
         }};
 
@@ -121,14 +143,21 @@ script_inject = f"""
             if(lineTraces.length > 0) {{
                 var last = lineTraces.pop();
                 Plotly.deleteTraces(plot, last);
+                lineTraces = lineTraces.map(idx => idx > last ? idx - 1 : idx);
             }}
         }};
 
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
-            document.getElementById('panel-content').innerHTML = "<b>ID:</b> "+r.id_afisat+"<br><b>Pret:</b> "+r.pret+"<br><b>De la:</b> "+r.startort;
-            document.getElementById('panel-counter').innerText = (currentIndex+1)+"/"+currentGroup.length;
+            document.getElementById('panel-content').innerHTML = 
+                "<b>ID Cursă:</b> <span style='color:#00cc44'>" + r.id_afisat + "</span><br>" +
+                "<b>AG:</b> " + r.ag + "<br>" + 
+                "<b>De la:</b> " + r.startort + "<br>" +
+                "<b>Către:</b> " + r.zielort + "<br>" +
+                "<b>Preț:</b> <b>" + r.pret + "</b><br>" +
+                "<b>Livrare:</b> " + r.livrare;
+            document.getElementById('panel-counter').innerText = (currentIndex + 1) + " / " + currentGroup.length;
             drawLine();
         }};
 
@@ -138,7 +167,7 @@ script_inject = f"""
 
         plot.on('plotly_click', function(data){{
             var ids = data.points[0].customdata;
-            if(ids) {{
+            if(Array.isArray(ids)) {{
                 currentGroup = ids; currentIndex = 0;
                 document.getElementById('custom-route-panel').style.display = 'block';
                 updatePanel();
