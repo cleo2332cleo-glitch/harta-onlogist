@@ -58,7 +58,6 @@ for (lat, lon), group in grouped_ziels:
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
-# BULINE MICI (Scăzute cu mai mult de jumătate)
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=s_lons, lat=s_lats,
     marker={'size': 10, 'color': 'black', 'opacity': 0.8},
@@ -70,19 +69,19 @@ fig.add_trace(go.Scattermapbox(
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
+# showlegend=False scoate tabelul cu trace-uri din dreapta
 fig.update_layout(
     mapbox={'style': "carto-positron", 'center': {'lon': 10.45, 'lat': 51.16}, 'zoom': 6},
-    margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
+    margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event', showlegend=False
 )
 
 html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'responsive': True})
 json_coords = json.dumps(locations_data)
 
-# CSS Versiunea "MINI"
+# CSS Versiunea "MINI" (Păstrată neatinsă)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
-    /* Panou discret la bază */
     #custom-route-panel {{
         display: none; position: fixed; 
         bottom: 5px; left: 5px; right: 5px;
@@ -91,20 +90,16 @@ script_inject = f"""
         font-family: sans-serif;
     }}
     .panel-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-    
-    /* Butoane compacte */
     .mob-btn {{ 
         cursor: pointer; padding: 6px 10px; 
         background: #2c3e50; color: white; border: none; 
         border-radius: 4px; font-weight: bold; font-size: 12px;
     }}
     .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; }}
-    
-    /* Detalii cursă finuțe */
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
+    .highlight-ag {{ color: #007bff; font-weight: bold; }} /* Culoare albastra pentru AG */
     .undo-mob {{ background: #e67e22 !important; }}
-    
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
@@ -137,7 +132,7 @@ script_inject = f"""
                 type: 'scattermapbox', mode: 'lines+markers',
                 lon: [r.start[0], r.ziel[0]], lat: [r.start[1], r.ziel[1]],
                 line: {{width: 3, color: '#00cc44'}}, marker: {{size: 6, color: '#00cc44'}},
-                hoverinfo: 'none'
+                hoverinfo: 'none', showlegend: false
             }};
             Plotly.addTraces(plot, newLine);
             lineTraces.push(plot.data.length - 1);
@@ -157,6 +152,7 @@ script_inject = f"""
             document.getElementById('panel-content').innerHTML = 
                 "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
                 "<b>Preț:</b> " + r.pret + "<br>" +
+                "<b>AG:</b> <span class='highlight-ag'>" + r.ag + "</span><br>" +
                 "<b>Start:</b> " + r.startort + "<br>" +
                 "<b>Dest:</b> " + r.zielort;
             document.getElementById('panel-counter').innerText = (currentIndex + 1) + "/" + currentGroup.length;
