@@ -40,7 +40,7 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE ---
+# --- GRUPARE (Codul tău original) ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
@@ -60,15 +60,14 @@ for (lat, lon), group in grouped_ziels:
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
-# AM MARIT GIGANTIC BULINELE (de la 22 la 30)
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=s_lons, lat=s_lats,
-    marker={'size': 30, 'color': 'black', 'opacity': 0.85},
+    marker={'size': 14, 'color': 'black', 'opacity': 0.9},
     text=s_texts, hoverinfo='text', customdata=s_ids
 ))
 fig.add_trace(go.Scattermapbox(
     mode="markers", lon=z_lons, lat=z_lats,
-    marker={'size': 26, 'color': 'red', 'opacity': 0.75},
+    marker={'size': 12, 'color': 'red', 'opacity': 0.8},
     text=z_texts, hoverinfo='text', customdata=z_ids
 ))
 
@@ -77,67 +76,38 @@ fig.update_layout(
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event'
 )
 
-# Adaugam Viewport pentru mobil si config de scroll
-html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True})
+# Includem toată biblioteca Plotly direct în fișier (ca în CMD)
+html_content = fig.to_html(include_plotlyjs=True, full_html=True)
 json_coords = json.dumps(locations_data)
 
-# CSS Radical pentru experienta de Aplicatie APK (Bottom Sheet)
+# Injectăm Panoul și Logica de Click (EXACT CUM LE-AI AVUT)
 script_inject = f"""
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <style>
-    /* Panoul tip "Bottom Sheet" - Apare de jos in sus */
     #custom-route-panel {{
-        display: none; position: fixed; 
-        bottom: 0; left: 5%; /* Centrat pe orizontala */
-        width: 90%; max-width: 500px; /* Latime mare, dar controlata */
-        background: white; border-top: 4px solid #2c3e50; border-radius: 20px 20px 0 0; /* Colturile de sus rotunjite */
-        padding: 20px; z-index: 999999; box-shadow: 0px -10px 30px rgba(0,0,0,0.5);
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        box-sizing: border-box;
+        display: none; position: absolute; top: 20px; right: 20px; width: 340px;
+        background: white; border: 2px solid #2c3e50; border-radius: 8px;
+        padding: 15px; z-index: 10000; box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }}
-    /* Header-ul panoului, cu Undo si Close */
-    .panel-header-row {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }}
-    
-    /* BUTOANE GIGANTICE PENTRU MOBILE */
-    .mob-btn {{ 
-        cursor: pointer; 
-        padding: 16px 24px; /* Extrem de inalte pentru degete */
-        background: #2c3e50; color: white; border: none; 
-        border-radius: 10px; font-weight: bold; 
-        font-size: 16px; /* Text mare pe buton */
-        min-width: 80px; text-align: center;
-    }}
-    .close-btn {{ color: red; font-size: 32px; font-weight: bold; cursor: pointer; padding: 0 10px; }}
-    
-    /* Text mare pentru detalii */
-    #panel-content {{ 
-        margin: 20px 0; font-size: 17px; /* Text clar, citibil usor */
-        line-height: 1.6; color: #111; 
-    }}
-    #panel-content b {{ font-weight: 700; color: #444; }}
-    .highlight-id {{ color: #00cc44; font-weight: 900; font-size: 1.1em; }}
-    .undo-mob {{ background: #e67e22 !important; }}
-    
-    /* Footer-ul cu Prev/Next/Counter */
-    .panel-footer-row {{ display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }}
+    .panel-btn {{ cursor: pointer; padding: 5px 12px; background: #2c3e50; color: white; border: none; border-radius: 4px; }}
+    .undo-btn {{ background: #e67e22 !important; }}
 </style>
 
 <div id="custom-route-panel">
-    <div class="panel-header-row">
-        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO LINE</button>
-        <span class="close-btn" onclick="closePanel()">✖</span>
-    </div>
-    <div id="panel-content"></div>
-    <div class="panel-footer-row">
-        <button class="mob-btn" onclick="prevRoute()">PREV</button>
-        <strong id="panel-counter" style="font-size: 18px;"></strong>
-        <button class="mob-btn" onclick="nextRoute()">NEXT</button>
+    <span style="float:right; cursor:pointer; color:red; font-weight:bold;" onclick="closePanel()">✖</span>
+    <button class="panel-btn undo-btn" onclick="undoLastLine()">UNDO LINE</button>
+    <div id="panel-content" style="margin: 15px 0; font-size: 13px;"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="panel-btn" onclick="prevRoute()">&#8592; Prev</button>
+        <strong id="panel-counter"></strong>
+        <button class="panel-btn" onclick="nextRoute()">Next &#8594;</button>
     </div>
 </div>
 
 <script>
     var coords = {json_coords};
     
+    // Așteptăm ca totul să fie încărcat (esențial pentru GitHub)
     window.onload = function() {{
         var plot = document.getElementsByClassName('plotly-graph-div')[0];
         var currentGroup = [];
@@ -147,11 +117,10 @@ script_inject = f"""
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
-            // Linii mai groase si markere de linie mai mari
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
                 lon: [r.start[0], r.ziel[0]], lat: [r.start[1], r.ziel[1]],
-                line: {{width: 6, color: '#00cc44'}}, marker: {{size: 12, color: '#00cc44'}},
+                line: {{width: 4, color: '#00cc44'}}, marker: {{size: 8, color: '#00cc44'}},
                 hoverinfo: 'none'
             }};
             Plotly.addTraces(plot, newLine);
@@ -170,11 +139,11 @@ script_inject = f"""
             var id = currentGroup[currentIndex];
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
-                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span><br>" +
+                "<b>ID Cursă:</b> " + r.id_afisat + "<br>" +
                 "<b>AG:</b> " + r.ag + "<br>" + 
                 "<b>De la:</b> " + r.startort + "<br>" +
                 "<b>Către:</b> " + r.zielort + "<br>" +
-                "<b>Preț:</b> <b>" + r.pret + "</b><br>" +
+                "<b>Preț:</b> " + r.pret + "<br>" +
                 "<b>Livrare:</b> " + r.livrare;
             document.getElementById('panel-counter').innerText = (currentIndex + 1) + " / " + currentGroup.length;
             drawLine();
@@ -188,7 +157,6 @@ script_inject = f"""
             var ids = data.points[0].customdata;
             if(Array.isArray(ids)) {{
                 currentGroup = ids; currentIndex = 0;
-                // Afisam panoul tip bottom sheet
                 document.getElementById('custom-route-panel').style.display = 'block';
                 updatePanel();
             }}
