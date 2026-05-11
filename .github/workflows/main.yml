@@ -1,31 +1,33 @@
-name: update onlogist
+name: Generare Harta Neon 2026
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Îți permite să rulezi scriptul manual de pe GitHub
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
-          pip install pandas plotly
+          python -m pip install --upgrade pip
+          pip install folium
 
       - name: Run script
         run: python harta.py
 
-      - name: Commit and push changes
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "action@github.com"
-          git add index.html
-          git commit -m "Update map with delete button" || exit 0
-          git push
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: harta-interactiva
+          path: harta_prologistics_2026.html
