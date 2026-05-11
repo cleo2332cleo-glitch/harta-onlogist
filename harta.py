@@ -31,7 +31,6 @@ for i, row in df.iterrows():
     locations_data[idx_str] = {
         'id_afisat': str(row['#ID']),
         'pret': str(row['Listen Preis']),
-        'km': str(row['Entfernung']).replace('\n', ' '),
         'ag': str(row['Auftraggeber (AG)']).replace('\n', ' '),
         'startort': str(row['Startort']).replace('\n', '<br>'),
         'zielort': str(row['Zielort']).replace('\n', '<br>'),
@@ -41,28 +40,10 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE PUNCTE PE HARTA ---
-grouped_starts = df.groupby(['start_lat', 'start_lon'])
-s_lons, s_lats, s_texts, s_ids = [], [], [], []
-for (lat, lon), group in grouped_starts:
-    loc_name = str(group.iloc[0]['Startort']).split(',')[0]
-    s_lons.append(lon)
-    s_lats.append(lat)
-    s_texts.append(f"<b>{loc_name}</b>")
-    s_ids.append(list(map(str, group.index.tolist())))
-
-grouped_ziels = df.groupby(['ziel_lat', 'ziel_lon'])
-z_lons, z_lats, z_texts, z_ids = [], [], [], []
-for (lat, lon), group in grouped_ziels:
-    loc_name = str(group.iloc[0]['Zielort']).split(',')[0]
-    z_lons.append(lon)
-    z_lats.append(lat)
-    z_texts.append(f"<b>{loc_name}</b>")
-    z_ids.append(list(map(str, group.index.tolist())))
-
+# --- Hartă ---
 fig = go.Figure()
-fig.add_trace(go.Scattermapbox(mode="markers", lon=s_lons, lat=s_lats, marker={'size': 10, 'color': 'black', 'opacity': 0.8}, text=s_texts, hoverinfo='text', customdata=s_ids))
-fig.add_trace(go.Scattermapbox(mode="markers", lon=z_lons, lat=z_lats, marker={'size': 8, 'color': 'red', 'opacity': 0.7}, text=z_texts, hoverinfo='text', customdata=z_ids))
+fig.add_trace(go.Scattermapbox(mode="markers", lon=df['start_lon'], lat=df['start_lat'], marker={'size': 10, 'color': 'black'}, customdata=df.index))
+fig.add_trace(go.Scattermapbox(mode="markers", lon=df['ziel_lon'], lat=df['ziel_lat'], marker={'size': 8, 'color': 'red'}, customdata=df.index))
 
 fig.update_layout(
     mapbox={'style': "carto-positron", 'center': {'lon': 10.45, 'lat': 51.16}, 'zoom': 6},
@@ -75,46 +56,42 @@ json_coords = json.dumps(locations_data)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
-    #search-box {{
+    /* STIL LUPA CAUTARE */
+    #search-container {{
         position: fixed; top: 10px; left: 10px; z-index: 999999;
-        background: white; padding: 8px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        display: flex; gap: 5px;
+        display: flex; gap: 5px; background: white; padding: 5px;
+        border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }}
-    #search-input {{ padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 120px; font-size: 14px; }}
+    #search-input {{ padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 130px; font-size: 14px; }}
+    
+    /* STIL PANEL DETALII */
     #custom-route-panel {{
         display: none; position: fixed; bottom: 5px; left: 5px; right: 5px;
         background: white; border: 1px solid #ccc; border-radius: 8px;
-        padding: 8px; z-index: 999999; box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
-        font-family: sans-serif;
+        padding: 8px; z-index: 999999; font-family: sans-serif;
     }}
     .panel-header {{ display: flex; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
     .mob-btn {{ cursor: pointer; padding: 6px 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; }}
-    .undo-mob {{ background: #e67e22 !important; }}
-    .clear-mob {{ background: #d9534f !important; margin-left: 15px; }}
     .delete-mob {{ background: #ff4d4d !important; margin-left: auto; }}
     .close-btn {{ color: #999; font-size: 22px; font-weight: bold; cursor: pointer; margin-left: 10px; }}
-    #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
-    .highlight-id {{ color: #00cc44; font-weight: bold; }}
-    .highlight-km {{ color: #e67e22; font-weight: bold; }}
-    .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
-<div id="search-box">
+<div id="search-container">
     <input type="number" id="search-input" placeholder="ID Cursă...">
     <button class="mob-btn" onclick="searchByID()">🔍</button>
 </div>
 
 <div id="custom-route-panel">
     <div class="panel-header">
-        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
-        <button class="mob-btn clear-mob" onclick="clearAllLines()">CLEAR</button>
+        <button class="mob-btn" style="background:#e67e22" onclick="undoLastLine()">UNDO</button>
+        <button class="mob-btn" style="background:#d9534f; margin-left:10px;" onclick="clearAllLines()">CLEAR</button>
         <button class="mob-btn delete-mob" onclick="askDelete()">DELETE</button>
         <span class="close-btn" onclick="closePanel()">×</span>
     </div>
-    <div id="panel-content"></div>
-    <div class="panel-footer">
+    <div id="panel-content" style="margin:8px 0; font-size:13px;"></div>
+    <div style="display:flex; justify-content: space-between;">
         <button class="mob-btn" onclick="prevRoute()">PREV</button>
-        <span id="panel-counter" style="font-size: 12px; font-weight: bold;"></span>
+        <span id="panel-counter" style="font-weight:bold"></span>
         <button class="mob-btn" onclick="nextRoute()">NEXT</button>
     </div>
 </div>
@@ -134,7 +111,11 @@ script_inject = f"""
                     currentGroup = [key]; currentIndex = 0;
                     document.getElementById('custom-route-panel').style.display = 'block';
                     updatePanel();
-                    Plotly.relayout(plot, {{ 'mapbox.center.lon': coords[key].start[0], 'mapbox.center.lat': coords[key].start[1], 'mapbox.zoom': 9 }});
+                    Plotly.relayout(plot, {{
+                        'mapbox.center.lon': coords[key].start[0],
+                        'mapbox.center.lat': coords[key].start[1],
+                        'mapbox.zoom': 10
+                    }});
                     return;
                 }}
             }}
@@ -157,7 +138,7 @@ script_inject = f"""
 
         window.askDelete = function() {{
             var id = currentGroup[currentIndex];
-            if(confirm("Ștergi vizual cursa " + coords[id].id_afisat + "?")) {{
+            if(confirm("Ștergi vizual " + coords[id].id_afisat + "?")) {{
                 deletedIds.push(id);
                 localStorage.setItem('deletedRoutes', JSON.stringify(deletedIds));
                 undoLastLine();
@@ -165,42 +146,25 @@ script_inject = f"""
             }}
         }};
 
-        window.undoLastLine = function() {{
-            if(lineTraces.length > 0) {{
-                var last = lineTraces.pop();
-                Plotly.deleteTraces(plot, last);
-                lineTraces = lineTraces.map(idx => idx > last ? idx - 1 : idx);
-            }}
-        }};
-
-        window.clearAllLines = function() {{
-            if(lineTraces.length > 0) {{ Plotly.deleteTraces(plot, lineTraces); lineTraces = []; }}
-        }};
-
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
-                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | <span class='highlight-km'>" + r.km + "</span><br>" +
-                "<b>AG:</b> " + r.ag + "<br><b>Pick-up:</b> " + r.abholzeit + "<br>" +
-                "<b>Start:</b> " + r.startort + "<br><b>Dest:</b> " + r.zielort;
-            
-            let activeInGroup = currentGroup.filter(idx => !deletedIds.includes(idx));
-            document.getElementById('panel-counter').innerText = (activeInGroup.indexOf(id) + 1) + "/" + activeInGroup.length;
+                "<b>ID:</b> " + r.id_afisat + " | <b>Preț:</b> " + r.pret + "<br>" +
+                "<b>AG:</b> " + r.ag + "<br><b>Start:</b> " + r.startort + "<br><b>Dest:</b> " + r.zielort;
             drawLine();
         }};
 
+        window.undoLastLine = function() {{ if(lineTraces.length > 0) {{ var last = lineTraces.pop(); Plotly.deleteTraces(plot, last); }} }};
+        window.clearAllLines = function() {{ while(plot.data.length > 2) {{ Plotly.deleteTraces(plot, plot.data.length - 1); }} lineTraces = []; }};
         window.nextRoute = function() {{ currentIndex = (currentIndex + 1) % currentGroup.length; updatePanel(); }};
         window.prevRoute = function() {{ currentIndex = (currentIndex - 1 + currentGroup.length) % currentGroup.length; updatePanel(); }};
         window.closePanel = function() {{ document.getElementById('custom-route-panel').style.display='none'; }};
 
         plot.on('plotly_click', function(data){{
-            var ids = data.points[0].customdata;
-            if(Array.isArray(ids)) {{
-                currentGroup = ids; currentIndex = 0;
-                document.getElementById('custom-route-panel').style.display = 'block';
-                updatePanel();
-            }}
+            currentGroup = data.points[0].customdata; currentIndex = 0;
+            document.getElementById('custom-route-panel').style.display = 'block';
+            updatePanel();
         }});
     }};
 </script>
