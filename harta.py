@@ -33,7 +33,8 @@ for i, row in df.iterrows():
         'ag': str(row['Auftraggeber (AG)']).replace('\n', ' '),
         'startort': str(row['Startort']).replace('\n', '<br>'),
         'zielort': str(row['Zielort']).replace('\n', '<br>'),
-        'livrare': str(row['Ankunftszeit']),
+        'abholzeit': str(row['Abholzeit']), # Adaugat Abholzeit
+        'livrare': str(row['Ankunftszeit']), # Ankunftszeit (era deja livrare)
         'start': [row['start_lon'], row['start_lat']], 
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
@@ -86,7 +87,7 @@ html_content = fig.to_html(
 )
 json_coords = json.dumps(locations_data)
 
-# CSS Versiunea "MINI" (Păstrată neatinsă)
+# CSS Versiunea "MINI"
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -107,13 +108,17 @@ script_inject = f"""
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .highlight-ag {{ color: #007bff; font-weight: bold; }}
-    .undo-mob {{ background: #e67e22 !important; }}
+    .undo-mob {{ background: #e67e22 !important; margin-right: 5px; }}
+    .clear-mob {{ background: #d9534f !important; }} /* Rosu pentru Clear */
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
 <div id="custom-route-panel">
     <div class="panel-header">
-        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
+        <div>
+            <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
+            <button class="mob-btn clear-mob" onclick="clearAllLines()">CLEAR</button>
+        </div>
         <span class="close-btn" onclick="closePanel()">×</span>
     </div>
     <div id="panel-content"></div>
@@ -154,6 +159,13 @@ script_inject = f"""
             }}
         }};
 
+        window.clearAllLines = function() {{
+            if(lineTraces.length > 0) {{
+                Plotly.deleteTraces(plot, lineTraces);
+                lineTraces = [];
+            }}
+        }};
+
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
@@ -161,6 +173,8 @@ script_inject = f"""
                 "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
                 "<b>Preț:</b> " + r.pret + "<br>" +
                 "<b>AG:</b> <span class='highlight-ag'>" + r.ag + "</span><br>" +
+                "<b>Pick-up:</b> " + r.abholzeit + "<br>" +
+                "<b>Delivery:</b> " + r.livrare + "<br>" +
                 "<b>Start:</b> " + r.startort + "<br>" +
                 "<b>Dest:</b> " + r.zielort;
             document.getElementById('panel-counter').innerText = (currentIndex + 1) + "/" + currentGroup.length;
