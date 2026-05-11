@@ -1,4 +1,4 @@
-import pandas pd
+import pandas as pd
 import plotly.graph_objects as go
 import json
 
@@ -19,8 +19,6 @@ def parse_coords(coord_str):
         return None, None
 
 df = pd.read_csv(URL_SHEETS)
-
-# --- REPARARE EROARE COLOANE ---
 df.columns = df.columns.str.strip()
 
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
@@ -78,18 +76,10 @@ fig.update_layout(
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event', showlegend=False
 )
 
-html_content = fig.to_html(
-    include_plotlyjs=True, 
-    full_html=True, 
-    config={
-        'scrollZoom': True,
-        'responsive': True,
-        'displayModeBar': False
-    }
-)
+html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True, 'displayModeBar': False})
 json_coords = json.dumps(locations_data)
 
-# SCRIPT INJECTAT CU BUTON DELETE + CONFIRMARE
+# SCRIPT CU BUTON DELETE IN DREAPTA + CONFIRMARE
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -100,30 +90,30 @@ script_inject = f"""
         padding: 8px; z-index: 999999; box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
         font-family: sans-serif;
     }}
-    .panel-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-    .header-btns {{ display: flex; align-items: center; flex-grow: 1; }}
+    .panel-header {{ display: flex; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
+    .header-left {{ display: flex; gap: 5px; }}
     .mob-btn {{ 
         cursor: pointer; padding: 6px 10px; 
         background: #2c3e50; color: white; border: none; 
-        border-radius: 4px; font-weight: bold; font-size: 12px;
+        border-radius: 4px; font-weight: bold; font-size: 11px;
     }}
-    .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; margin-left: 10px; }}
+    .undo-mob {{ background: #e67e22 !important; }}
+    .clear-mob {{ background: #d9534f !important; margin-left: 20px; }}
+    .delete-mob {{ background: #ff4d4d !important; margin-left: auto; }}
+    .close-btn {{ color: #999; font-size: 22px; font-weight: bold; cursor: pointer; margin-left: 10px; line-height: 1; }}
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .highlight-ag {{ color: #007bff; font-weight: bold; }}
-    .undo-mob {{ background: #e67e22 !important; }}
-    .clear-mob {{ background: #d9534f !important; margin-left: 25px; }}
-    .delete-mob {{ background: #ff0000 !important; margin-left: auto; }}
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
 <div id="custom-route-panel">
     <div class="panel-header">
-        <div class="header-btns">
+        <div class="header-left">
             <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
             <button class="mob-btn clear-mob" onclick="clearAllLines()">CLEAR</button>
-            <button class="mob-btn delete-mob" onclick="deleteCourse()">DELETE</button>
         </div>
+        <button class="mob-btn delete-mob" onclick="askDelete()">DELETE</button>
         <span class="close-btn" onclick="closePanel()">×</span>
     </div>
     <div id="panel-content"></div>
@@ -171,13 +161,12 @@ script_inject = f"""
             }}
         }};
 
-        window.deleteCourse = function() {{
+        window.askDelete = function() {{
             var id = currentGroup[currentIndex];
-            var info = coords[id];
-            var text = "Esti sigur ca vrei sa stergi CURSA ID: " + info.id_afisat + "?\\nAceasta actiune este definitiva!";
-            if (confirm(text)) {{
-                alert("Cursa " + info.id_afisat + " a fost eliminata din vizualizare (refresh pt actualizare).");
-                // Aici poti adauga logica de stergere server-side daca e cazul
+            var r = coords[id];
+            var conf = confirm("Esti sigur ca vrei sa stergi cursa ID: " + r.id_afisat + "?\\nAceasta actiune este definitiva!");
+            if(conf) {{
+                alert("Cursa " + r.id_afisat + " a fost marcata pentru stergere. Sterge randul corespunzator din Google Sheets pentru a disparea permanent.");
                 closePanel();
             }}
         }};
