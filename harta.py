@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas pd
 import plotly.graph_objects as go
 import json
 
@@ -23,7 +23,6 @@ df = pd.read_csv(URL_SHEETS)
 # --- REPARARE EROARE COLOANE ---
 df.columns = df.columns.str.strip()
 
-# Citire coordonate din coloanele I si J (Coord_Start si Coord_Ziel)
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
@@ -34,7 +33,6 @@ for i, row in df.iterrows():
     locations_data[idx_str] = {
         'id_afisat': str(row['#ID']),
         'pret': str(row['Listen Preis']),
-        'km': str(row['Entfernung']).replace('\n', ' '), # Adaugat KM (Entfernung)
         'ag': str(row['Auftraggeber (AG)']).replace('\n', ' '),
         'startort': str(row['Startort']).replace('\n', '<br>'),
         'zielort': str(row['Zielort']).replace('\n', '<br>'),
@@ -83,10 +81,15 @@ fig.update_layout(
 html_content = fig.to_html(
     include_plotlyjs=True, 
     full_html=True, 
-    config={'scrollZoom': True, 'responsive': True, 'displayModeBar': False}
+    config={
+        'scrollZoom': True,
+        'responsive': True,
+        'displayModeBar': False
+    }
 )
 json_coords = json.dumps(locations_data)
 
+# SCRIPT INJECTAT CU BUTON DELETE + CONFIRMARE
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -98,22 +101,28 @@ script_inject = f"""
         font-family: sans-serif;
     }}
     .panel-header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-    .mob-btn {{ cursor: pointer; padding: 6px 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; }}
-    .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; }}
+    .header-btns {{ display: flex; align-items: center; flex-grow: 1; }}
+    .mob-btn {{ 
+        cursor: pointer; padding: 6px 10px; 
+        background: #2c3e50; color: white; border: none; 
+        border-radius: 4px; font-weight: bold; font-size: 12px;
+    }}
+    .close-btn {{ color: red; font-size: 20px; font-weight: bold; cursor: pointer; margin-left: 10px; }}
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .highlight-ag {{ color: #007bff; font-weight: bold; }}
-    .highlight-km {{ color: #e67e22; font-weight: bold; }}
     .undo-mob {{ background: #e67e22 !important; }}
     .clear-mob {{ background: #d9534f !important; margin-left: 25px; }}
+    .delete-mob {{ background: #ff0000 !important; margin-left: auto; }}
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
 <div id="custom-route-panel">
     <div class="panel-header">
-        <div>
+        <div class="header-btns">
             <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
             <button class="mob-btn clear-mob" onclick="clearAllLines()">CLEAR</button>
+            <button class="mob-btn delete-mob" onclick="deleteCourse()">DELETE</button>
         </div>
         <span class="close-btn" onclick="closePanel()">×</span>
     </div>
@@ -127,6 +136,7 @@ script_inject = f"""
 
 <script>
     var coords = {json_coords};
+    
     window.onload = function() {{
         var plot = document.getElementsByClassName('plotly-graph-div')[0];
         var currentGroup = [];
@@ -161,13 +171,23 @@ script_inject = f"""
             }}
         }};
 
+        window.deleteCourse = function() {{
+            var id = currentGroup[currentIndex];
+            var info = coords[id];
+            var text = "Esti sigur ca vrei sa stergi CURSA ID: " + info.id_afisat + "?\\nAceasta actiune este definitiva!";
+            if (confirm(text)) {{
+                alert("Cursa " + info.id_afisat + " a fost eliminata din vizualizare (refresh pt actualizare).");
+                // Aici poti adauga logica de stergere server-side daca e cazul
+                closePanel();
+            }}
+        }};
+
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
                 "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
                 "<b>Preț:</b> " + r.pret + "<br>" +
-                "<b>Distanță:</b> <span class='highlight-km'>" + r.km + "</span><br>" +
                 "<b>AG:</b> <span class='highlight-ag'>" + r.ag + "</span><br>" +
                 "<b>Pick-up:</b> " + r.abholzeit + "<br>" +
                 "<b>Delivery:</b> " + r.livrare + "<br>" +
