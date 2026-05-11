@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import json
 
 # 1. Incarcare date din Google Sheets
-URL_SHEETS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGWQb5ZLpLGDwl6mjeNAfzhUrl3GShXab_ePVSU8tj-9aOAwStGMjEutsErHnezkOpIaGA4maO_HYU/pub?output=csv"
+URL_SHEETS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSnlLZB2PnX1qXG80tK5TiHakYMd_Xdq_BrOd-PgsTNj7LYDbS83rD5TLATZl9_HsWNvD2cqReQnjQt/pub?output=csv"
 
 def parse_coords(coord_str):
     try:
