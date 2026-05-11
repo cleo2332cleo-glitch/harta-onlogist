@@ -20,7 +20,7 @@ jobs:
           pip install pandas plotly
 
       - name: Run script
-        run: python main.py
+        run: python harta.py
 
       - name: Commit and push changes
         run: |
