@@ -31,6 +31,7 @@ for i, row in df.iterrows():
     locations_data[idx_str] = {
         'id_afisat': str(row['#ID']),
         'pret': str(row['Listen Preis']),
+        'km': str(row['Entfernung']).replace('\n', ' '),
         'ag': str(row['Auftraggeber (AG)']).replace('\n', ' '),
         'startort': str(row['Startort']).replace('\n', '<br>'),
         'zielort': str(row['Zielort']).replace('\n', '<br>'),
@@ -40,7 +41,7 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE ---
+# --- GRUPARE PUNCTE PE HARTA ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
@@ -60,16 +61,8 @@ for (lat, lon), group in grouped_ziels:
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
-fig.add_trace(go.Scattermapbox(
-    mode="markers", lon=s_lons, lat=s_lats,
-    marker={'size': 10, 'color': 'black', 'opacity': 0.8},
-    text=s_texts, hoverinfo='text', customdata=s_ids
-))
-fig.add_trace(go.Scattermapbox(
-    mode="markers", lon=z_lons, lat=z_lats,
-    marker={'size': 8, 'color': 'red', 'opacity': 0.7},
-    text=z_texts, hoverinfo='text', customdata=z_ids
-))
+fig.add_trace(go.Scattermapbox(mode="markers", lon=s_lons, lat=s_lats, marker={'size': 10, 'color': 'black', 'opacity': 0.8}, text=s_texts, hoverinfo='text', customdata=s_ids))
+fig.add_trace(go.Scattermapbox(mode="markers", lon=z_lons, lat=z_lats, marker={'size': 8, 'color': 'red', 'opacity': 0.7}, text=z_texts, hoverinfo='text', customdata=z_ids))
 
 fig.update_layout(
     mapbox={'style': "carto-positron", 'center': {'lon': 10.45, 'lat': 51.16}, 'zoom': 6},
@@ -79,40 +72,42 @@ fig.update_layout(
 html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True, 'displayModeBar': False})
 json_coords = json.dumps(locations_data)
 
-# SCRIPT CU STERGERE VIZUALA (LOCAL STORAGE)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
+    #search-box {{
+        position: fixed; top: 10px; left: 10px; z-index: 999999;
+        background: white; padding: 8px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        display: flex; gap: 5px;
+    }}
+    #search-input {{ padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 120px; font-size: 14px; }}
     #custom-route-panel {{
-        display: none; position: fixed; 
-        bottom: 5px; left: 5px; right: 5px;
+        display: none; position: fixed; bottom: 5px; left: 5px; right: 5px;
         background: white; border: 1px solid #ccc; border-radius: 8px;
         padding: 8px; z-index: 999999; box-shadow: 0px 2px 10px rgba(0,0,0,0.2);
         font-family: sans-serif;
     }}
     .panel-header {{ display: flex; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }}
-    .header-left {{ display: flex; gap: 5px; }}
-    .mob-btn {{ 
-        cursor: pointer; padding: 6px 10px; 
-        background: #2c3e50; color: white; border: none; 
-        border-radius: 4px; font-weight: bold; font-size: 11px;
-    }}
+    .mob-btn {{ cursor: pointer; padding: 6px 10px; background: #2c3e50; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; }}
     .undo-mob {{ background: #e67e22 !important; }}
-    .clear-mob {{ background: #d9534f !important; margin-left: 20px; }}
+    .clear-mob {{ background: #d9534f !important; margin-left: 15px; }}
     .delete-mob {{ background: #ff4d4d !important; margin-left: auto; }}
-    .close-btn {{ color: #999; font-size: 22px; font-weight: bold; cursor: pointer; margin-left: 10px; line-height: 1; }}
+    .close-btn {{ color: #999; font-size: 22px; font-weight: bold; cursor: pointer; margin-left: 10px; }}
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
-    .highlight-ag {{ color: #007bff; font-weight: bold; }}
+    .highlight-km {{ color: #e67e22; font-weight: bold; }}
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
+<div id="search-box">
+    <input type="number" id="search-input" placeholder="ID Cursă...">
+    <button class="mob-btn" onclick="searchByID()">🔍</button>
+</div>
+
 <div id="custom-route-panel">
     <div class="panel-header">
-        <div class="header-left">
-            <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
-            <button class="mob-btn clear-mob" onclick="clearAllLines()">CLEAR</button>
-        </div>
+        <button class="mob-btn undo-mob" onclick="undoLastLine()">UNDO</button>
+        <button class="mob-btn clear-mob" onclick="clearAllLines()">CLEAR</button>
         <button class="mob-btn delete-mob" onclick="askDelete()">DELETE</button>
         <span class="close-btn" onclick="closePanel()">×</span>
     </div>
@@ -126,19 +121,29 @@ script_inject = f"""
 
 <script>
     var coords = {json_coords};
-    // Incarcam lista de ID-uri sterse din memoria browserului
     var deletedIds = JSON.parse(localStorage.getItem('deletedRoutes') || '[]');
-    
+    var plot, currentGroup = [], currentIndex = 0, lineTraces = [];
+
     window.onload = function() {{
-        var plot = document.getElementsByClassName('plotly-graph-div')[0];
-        var currentGroup = [];
-        var currentIndex = 0;
-        var lineTraces = [];
+        plot = document.getElementsByClassName('plotly-graph-div')[0];
+
+        window.searchByID = function() {{
+            var val = document.getElementById('search-input').value.trim();
+            for (var key in coords) {{
+                if (coords[key].id_afisat === val) {{
+                    currentGroup = [key]; currentIndex = 0;
+                    document.getElementById('custom-route-panel').style.display = 'block';
+                    updatePanel();
+                    Plotly.relayout(plot, {{ 'mapbox.center.lon': coords[key].start[0], 'mapbox.center.lat': coords[key].start[1], 'mapbox.zoom': 9 }});
+                    return;
+                }}
+            }}
+            alert("ID negăsit!");
+        }};
 
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
-            if (deletedIds.includes(id)) return; // Nu desenam daca e stearsa
-
+            if (deletedIds.includes(id)) return;
             var r = coords[id];
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
@@ -152,20 +157,11 @@ script_inject = f"""
 
         window.askDelete = function() {{
             var id = currentGroup[currentIndex];
-            var r = coords[id];
-            if(confirm("Ștergi vizual cursa " + r.id_afisat + "?")) {{
+            if(confirm("Ștergi vizual cursa " + coords[id].id_afisat + "?")) {{
                 deletedIds.push(id);
                 localStorage.setItem('deletedRoutes', JSON.stringify(deletedIds));
-                
-                // Stergem linia curenta de pe harta daca exista
                 undoLastLine();
-                
-                // Trecem la urmatoarea cursa din grup sau inchidem
-                if (currentGroup.length > 1) {{
-                    nextRoute();
-                }} else {{
-                    closePanel();
-                }}
+                nextRoute();
             }}
         }};
 
@@ -178,82 +174,32 @@ script_inject = f"""
         }};
 
         window.clearAllLines = function() {{
-            if(lineTraces.length > 0) {{
-                Plotly.deleteTraces(plot, lineTraces);
-                lineTraces = [];
-            }}
+            if(lineTraces.length > 0) {{ Plotly.deleteTraces(plot, lineTraces); lineTraces = []; }}
         }};
 
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
-            
-            // Daca ID-ul e sters, incercam sa gasim unul nesters in grup
-            if (deletedIds.includes(id)) {{
-                let found = false;
-                for(let i=0; i<currentGroup.length; i++) {{
-                    if(!deletedIds.includes(currentGroup[i])) {{
-                        currentIndex = i;
-                        id = currentGroup[i];
-                        found = true;
-                        break;
-                    }}
-                }}
-                if(!found) {{ closePanel(); return; }}
-            }}
-
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
-                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
-                "<b>Preț:</b> " + r.pret + "<br>" +
-                "<b>AG:</b> <span class='highlight-ag'>" + r.ag + "</span><br>" +
-                "<b>Pick-up:</b> " + r.abholzeit + "<br>" +
-                "<b>Delivery:</b> " + r.livrare + "<br>" +
-                "<b>Start:</b> " + r.startort + "<br>" +
-                "<b>Dest:</b> " + r.zielort;
+                "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | <span class='highlight-km'>" + r.km + "</span><br>" +
+                "<b>AG:</b> " + r.ag + "<br><b>Pick-up:</b> " + r.abholzeit + "<br>" +
+                "<b>Start:</b> " + r.startort + "<br><b>Dest:</b> " + r.zielort;
             
-            // Calculam cate rute nesterse mai sunt in grup
             let activeInGroup = currentGroup.filter(idx => !deletedIds.includes(idx));
-            let currentPos = activeInGroup.indexOf(id) + 1;
-            
-            document.getElementById('panel-counter').innerText = currentPos + "/" + activeInGroup.length;
+            document.getElementById('panel-counter').innerText = (activeInGroup.indexOf(id) + 1) + "/" + activeInGroup.length;
             drawLine();
         }};
 
-        window.nextRoute = function() {{ 
-            let startPos = currentIndex;
-            do {{
-                currentIndex = (currentIndex + 1) % currentGroup.length;
-                if (!deletedIds.includes(currentGroup[currentIndex])) {{
-                    updatePanel();
-                    return;
-                }}
-            }} while (currentIndex !== startPos);
-        }};
-
-        window.prevRoute = function() {{ 
-            let startPos = currentIndex;
-            do {{
-                currentIndex = (currentIndex - 1 + currentGroup.length) % currentGroup.length;
-                if (!deletedIds.includes(currentGroup[currentIndex])) {{
-                    updatePanel();
-                    return;
-                }}
-            }} while (currentIndex !== startPos);
-        }};
-
+        window.nextRoute = function() {{ currentIndex = (currentIndex + 1) % currentGroup.length; updatePanel(); }};
+        window.prevRoute = function() {{ currentIndex = (currentIndex - 1 + currentGroup.length) % currentGroup.length; updatePanel(); }};
         window.closePanel = function() {{ document.getElementById('custom-route-panel').style.display='none'; }};
 
         plot.on('plotly_click', function(data){{
             var ids = data.points[0].customdata;
             if(Array.isArray(ids)) {{
-                // Filtram grupul sa nu contina ID-uri deja sterse
-                var activeIds = ids.filter(id => !deletedIds.includes(id));
-                if(activeIds.length > 0) {{
-                    currentGroup = ids; // Pastram grupul original pentru indexare
-                    currentIndex = ids.indexOf(activeIds[0]);
-                    document.getElementById('custom-route-panel').style.display = 'block';
-                    updatePanel();
-                }}
+                currentGroup = ids; currentIndex = 0;
+                document.getElementById('custom-route-panel').style.display = 'block';
+                updatePanel();
             }}
         }});
     }};
