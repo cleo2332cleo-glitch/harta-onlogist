@@ -20,6 +20,10 @@ def parse_coords(coord_str):
 
 df = pd.read_csv(URL_SHEETS)
 
+# --- REPARARE EROARE COLOANE ---
+# Aceasta linie sterge spatiile goale invizibile din numele coloanelor
+df.columns = df.columns.str.strip()
+
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
@@ -86,7 +90,7 @@ html_content = fig.to_html(
 )
 json_coords = json.dumps(locations_data)
 
-# CSS Versiunea "MINI" cu butonul CLEAR distantat
+# CSS Versiunea "MINI" cu butonul CLEAR distantat (25px)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -108,7 +112,7 @@ script_inject = f"""
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .highlight-ag {{ color: #007bff; font-weight: bold; }}
     .undo-mob {{ background: #e67e22 !important; }}
-    .clear-mob {{ background: #d9534f !important; margin-left: 25px; }} /* Mutat mai la dreapta */
+    .clear-mob {{ background: #d9534f !important; margin-left: 25px; }}
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
