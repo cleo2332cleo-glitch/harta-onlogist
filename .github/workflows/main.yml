@@ -1,33 +1,31 @@
-name: Generare Harta Neon 2026
+name: update onlogist
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # Update la v4
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5 # Update la v5
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.x'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install folium
+          pip install pandas plotly
 
       - name: Run script
         run: python harta.py
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4 # ASTA ERA PROBLEMA - acum e v4
-        with:
-          name: harta-interactiva
-          path: harta_prologistics_2026.html
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "action@github.com"
+          git add index.html
+          git commit -m "Update map with delete button" || exit 0
+          git push
