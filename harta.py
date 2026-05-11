@@ -79,7 +79,7 @@ fig.update_layout(
 html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True, 'displayModeBar': False})
 json_coords = json.dumps(locations_data)
 
-# SCRIPT CU BUTON DELETE IN DREAPTA + CONFIRMARE
+# SCRIPT CU STERGERE VIZUALA (LOCAL STORAGE)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -126,6 +126,8 @@ script_inject = f"""
 
 <script>
     var coords = {json_coords};
+    // Incarcam lista de ID-uri sterse din memoria browserului
+    var deletedIds = JSON.parse(localStorage.getItem('deletedRoutes') || '[]');
     
     window.onload = function() {{
         var plot = document.getElementsByClassName('plotly-graph-div')[0];
@@ -135,6 +137,8 @@ script_inject = f"""
 
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
+            if (deletedIds.includes(id)) return; // Nu desenam daca e stearsa
+
             var r = coords[id];
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
@@ -144,6 +148,25 @@ script_inject = f"""
             }};
             Plotly.addTraces(plot, newLine);
             lineTraces.push(plot.data.length - 1);
+        }};
+
+        window.askDelete = function() {{
+            var id = currentGroup[currentIndex];
+            var r = coords[id];
+            if(confirm("Ștergi vizual cursa " + r.id_afisat + "?")) {{
+                deletedIds.push(id);
+                localStorage.setItem('deletedRoutes', JSON.stringify(deletedIds));
+                
+                // Stergem linia curenta de pe harta daca exista
+                undoLastLine();
+                
+                // Trecem la urmatoarea cursa din grup sau inchidem
+                if (currentGroup.length > 1) {{
+                    nextRoute();
+                }} else {{
+                    closePanel();
+                }}
+            }}
         }};
 
         window.undoLastLine = function() {{
@@ -161,18 +184,23 @@ script_inject = f"""
             }}
         }};
 
-        window.askDelete = function() {{
-            var id = currentGroup[currentIndex];
-            var r = coords[id];
-            var conf = confirm("Esti sigur ca vrei sa stergi cursa ID: " + r.id_afisat + "?\\nAceasta actiune este definitiva!");
-            if(conf) {{
-                alert("Cursa " + r.id_afisat + " a fost marcata pentru stergere. Sterge randul corespunzator din Google Sheets pentru a disparea permanent.");
-                closePanel();
-            }}
-        }};
-
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
+            
+            // Daca ID-ul e sters, incercam sa gasim unul nesters in grup
+            if (deletedIds.includes(id)) {{
+                let found = false;
+                for(let i=0; i<currentGroup.length; i++) {{
+                    if(!deletedIds.includes(currentGroup[i])) {{
+                        currentIndex = i;
+                        id = currentGroup[i];
+                        found = true;
+                        break;
+                    }}
+                }}
+                if(!found) {{ closePanel(); return; }}
+            }}
+
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
                 "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
@@ -182,20 +210,50 @@ script_inject = f"""
                 "<b>Delivery:</b> " + r.livrare + "<br>" +
                 "<b>Start:</b> " + r.startort + "<br>" +
                 "<b>Dest:</b> " + r.zielort;
-            document.getElementById('panel-counter').innerText = (currentIndex + 1) + "/" + currentGroup.length;
+            
+            // Calculam cate rute nesterse mai sunt in grup
+            let activeInGroup = currentGroup.filter(idx => !deletedIds.includes(idx));
+            let currentPos = activeInGroup.indexOf(id) + 1;
+            
+            document.getElementById('panel-counter').innerText = currentPos + "/" + activeInGroup.length;
             drawLine();
         }};
 
-        window.nextRoute = function() {{ if(currentIndex < currentGroup.length-1) {{currentIndex++; updatePanel();}} }};
-        window.prevRoute = function() {{ if(currentIndex > 0) {{currentIndex--; updatePanel();}} }};
+        window.nextRoute = function() {{ 
+            let startPos = currentIndex;
+            do {{
+                currentIndex = (currentIndex + 1) % currentGroup.length;
+                if (!deletedIds.includes(currentGroup[currentIndex])) {{
+                    updatePanel();
+                    return;
+                }}
+            }} while (currentIndex !== startPos);
+        }};
+
+        window.prevRoute = function() {{ 
+            let startPos = currentIndex;
+            do {{
+                currentIndex = (currentIndex - 1 + currentGroup.length) % currentGroup.length;
+                if (!deletedIds.includes(currentGroup[currentIndex])) {{
+                    updatePanel();
+                    return;
+                }}
+            }} while (currentIndex !== startPos);
+        }};
+
         window.closePanel = function() {{ document.getElementById('custom-route-panel').style.display='none'; }};
 
         plot.on('plotly_click', function(data){{
             var ids = data.points[0].customdata;
             if(Array.isArray(ids)) {{
-                currentGroup = ids; currentIndex = 0;
-                document.getElementById('custom-route-panel').style.display = 'block';
-                updatePanel();
+                // Filtram grupul sa nu contina ID-uri deja sterse
+                var activeIds = ids.filter(id => !deletedIds.includes(id));
+                if(activeIds.length > 0) {{
+                    currentGroup = ids; // Pastram grupul original pentru indexare
+                    currentIndex = ids.indexOf(activeIds[0]);
+                    document.getElementById('custom-route-panel').style.display = 'block';
+                    updatePanel();
+                }}
             }}
         }});
     }};
