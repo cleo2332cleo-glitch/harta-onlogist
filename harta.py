@@ -21,6 +21,7 @@ def parse_coords(coord_str):
 df = pd.read_csv(URL_SHEETS)
 df.columns = df.columns.str.strip()
 
+# Calculam coordonatele
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
@@ -28,9 +29,13 @@ df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
 locations_data = {}
 for i, row in df.iterrows():
     idx_str = str(i)
+    # Extragere distanta (Entfernung) - ne asiguram ca e text curat
+    distanta = str(row['Entfernung']).replace('km', '').strip() if 'Entfernung' in df.columns else "N/A"
+    
     locations_data[idx_str] = {
         'id_afisat': str(row['#ID']),
         'pret': str(row['Listen Preis']),
+        'distanta': distanta,
         'ag': str(row['Auftraggeber (AG)']).replace('\n', ' '),
         'startort': str(row['Startort']).replace('\n', '<br>'),
         'zielort': str(row['Zielort']).replace('\n', '<br>'),
@@ -40,25 +45,23 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE MODIFICATA PENTRU TEXT (AUFTRAGGEBER) ---
+# --- GRUPARE ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
-    # Aici am schimbat: luam numele clientului (AG) in loc de Startort
-    ag_name = str(group.iloc[0]['Auftraggeber (AG)']).split('\n')[0]
+    loc_name = str(group.iloc[0]['Startort']).split(',')[0]
     s_lons.append(lon)
     s_lats.append(lat)
-    s_texts.append(f"<b>{ag_name}</b>")
+    s_texts.append(f"<b>{loc_name}</b>")
     s_ids.append(list(map(str, group.index.tolist())))
 
 grouped_ziels = df.groupby(['ziel_lat', 'ziel_lon'])
 z_lons, z_lats, z_texts, z_ids = [], [], [], []
 for (lat, lon), group in grouped_ziels:
-    # Aici am schimbat: luam numele clientului (AG) in loc de Zielort
-    ag_name = str(group.iloc[0]['Auftraggeber (AG)']).split('\n')[0]
+    loc_name = str(group.iloc[0]['Zielort']).split(',')[0]
     z_lons.append(lon)
     z_lats.append(lat)
-    z_texts.append(f"<b>{ag_name}</b>")
+    z_texts.append(f"<b>{loc_name}</b>")
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
@@ -81,7 +84,6 @@ fig.update_layout(
 html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True, 'displayModeBar': False})
 json_coords = json.dumps(locations_data)
 
-# SCRIPT RAMAS NESCHIMBAT (LOGICA TA ORIGINALA)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -106,6 +108,7 @@ script_inject = f"""
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .highlight-ag {{ color: #007bff; font-weight: bold; }}
+    .highlight-km {{ color: #e67e22; font-weight: bold; }}
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
@@ -139,6 +142,7 @@ script_inject = f"""
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
             if (deletedIds.includes(id)) return;
+
             var r = coords[id];
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
@@ -191,10 +195,10 @@ script_inject = f"""
             var r = coords[id];
             document.getElementById('panel-content').innerHTML = 
                 "<b>ID:</b> <span class='highlight-id'>" + r.id_afisat + "</span> | " +
-                "<b>Preț:</b> " + r.pret + "<br>" +
+                "<b>Preț:</b> " + r.pret + " | " +
+                "<b>Dist:</b> <span class='highlight-km'>" + r.distanta + " km</span><br>" +
                 "<b>AG:</b> <span class='highlight-ag'>" + r.ag + "</span><br>" +
-                "<b>Pick-up:</b> " + r.abholzeit + "<br>" +
-                "<b>Delivery:</b> " + r.livrare + "<br>" +
+                "<b>Pick-up:</b> " + r.abholzeit + " | <b>Delivery:</b> " + r.livrare + "<br>" +
                 "<b>Start:</b> " + r.startort + "<br>" +
                 "<b>Dest:</b> " + r.zielort;
             
