@@ -33,8 +33,8 @@ for i, row in df.iterrows():
         'ag': str(row['Auftraggeber (AG)']).replace('\n', ' '),
         'startort': str(row['Startort']).replace('\n', '<br>'),
         'zielort': str(row['Zielort']).replace('\n', '<br>'),
-        'abholzeit': str(row['Abholzeit']), # Adaugat Abholzeit
-        'livrare': str(row['Ankunftszeit']), # Ankunftszeit (era deja livrare)
+        'abholzeit': str(row['Abholzeit']),
+        'livrare': str(row['Ankunftszeit']),
         'start': [row['start_lon'], row['start_lat']], 
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
@@ -75,19 +75,18 @@ fig.update_layout(
     margin={'l': 0, 'r': 0, 'b': 0, 't': 0}, clickmode='event', showlegend=False
 )
 
-# ACTIVARE ZOOM CU MOUSE SI TOUCH
 html_content = fig.to_html(
     include_plotlyjs=True, 
     full_html=True, 
     config={
-        'scrollZoom': True,      # Permite zoom cu rotita mouse-ului
-        'responsive': True,      # Se adapteaza la ecran
-        'displayModeBar': False  # Ascunde bara de unelte pentru un aspect curat
+        'scrollZoom': True,
+        'responsive': True,
+        'displayModeBar': False
     }
 )
 json_coords = json.dumps(locations_data)
 
-# CSS Versiunea "MINI"
+# CSS Versiunea "MINI" cu butonul CLEAR distantat
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -108,8 +107,8 @@ script_inject = f"""
     #panel-content {{ margin: 8px 0; font-size: 13px; line-height: 1.3; color: #333; }}
     .highlight-id {{ color: #00cc44; font-weight: bold; }}
     .highlight-ag {{ color: #007bff; font-weight: bold; }}
-    .undo-mob {{ background: #e67e22 !important; margin-right: 5px; }}
-    .clear-mob {{ background: #d9534f !important; }} /* Rosu pentru Clear */
+    .undo-mob {{ background: #e67e22 !important; }}
+    .clear-mob {{ background: #d9534f !important; margin-left: 25px; }} /* Mutat mai la dreapta */
     .panel-footer {{ display: flex; justify-content: space-between; align-items: center; }}
 </style>
 
