@@ -40,23 +40,25 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE ---
+# --- GRUPARE MODIFICATA PENTRU TEXT (AUFTRAGGEBER) ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
-    loc_name = str(group.iloc[0]['Startort']).split(',')[0]
+    # Aici am schimbat: luam numele clientului (AG) in loc de Startort
+    ag_name = str(group.iloc[0]['Auftraggeber (AG)']).split('\n')[0]
     s_lons.append(lon)
     s_lats.append(lat)
-    s_texts.append(f"<b>{loc_name}</b>")
+    s_texts.append(f"<b>{ag_name}</b>")
     s_ids.append(list(map(str, group.index.tolist())))
 
 grouped_ziels = df.groupby(['ziel_lat', 'ziel_lon'])
 z_lons, z_lats, z_texts, z_ids = [], [], [], []
 for (lat, lon), group in grouped_ziels:
-    loc_name = str(group.iloc[0]['Zielort']).split(',')[0]
+    # Aici am schimbat: luam numele clientului (AG) in loc de Zielort
+    ag_name = str(group.iloc[0]['Auftraggeber (AG)']).split('\n')[0]
     z_lons.append(lon)
     z_lats.append(lat)
-    z_texts.append(f"<b>{loc_name}</b>")
+    z_texts.append(f"<b>{ag_name}</b>")
     z_ids.append(list(map(str, group.index.tolist())))
 
 fig = go.Figure()
@@ -79,7 +81,7 @@ fig.update_layout(
 html_content = fig.to_html(include_plotlyjs=True, full_html=True, config={'scrollZoom': True, 'responsive': True, 'displayModeBar': False})
 json_coords = json.dumps(locations_data)
 
-# SCRIPT CU STERGERE VIZUALA (LOCAL STORAGE)
+# SCRIPT RAMAS NESCHIMBAT (LOGICA TA ORIGINALA)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
@@ -126,7 +128,6 @@ script_inject = f"""
 
 <script>
     var coords = {json_coords};
-    // Incarcam lista de ID-uri sterse din memoria browserului
     var deletedIds = JSON.parse(localStorage.getItem('deletedRoutes') || '[]');
     
     window.onload = function() {{
@@ -137,8 +138,7 @@ script_inject = f"""
 
         window.drawLine = function() {{
             var id = currentGroup[currentIndex];
-            if (deletedIds.includes(id)) return; // Nu desenam daca e stearsa
-
+            if (deletedIds.includes(id)) return;
             var r = coords[id];
             var newLine = {{
                 type: 'scattermapbox', mode: 'lines+markers',
@@ -156,16 +156,8 @@ script_inject = f"""
             if(confirm("Ștergi vizual cursa " + r.id_afisat + "?")) {{
                 deletedIds.push(id);
                 localStorage.setItem('deletedRoutes', JSON.stringify(deletedIds));
-                
-                // Stergem linia curenta de pe harta daca exista
                 undoLastLine();
-                
-                // Trecem la urmatoarea cursa din grup sau inchidem
-                if (currentGroup.length > 1) {{
-                    nextRoute();
-                }} else {{
-                    closePanel();
-                }}
+                if (currentGroup.length > 1) {{ nextRoute(); }} else {{ closePanel(); }}
             }}
         }};
 
@@ -186,16 +178,11 @@ script_inject = f"""
 
         window.updatePanel = function() {{
             var id = currentGroup[currentIndex];
-            
-            // Daca ID-ul e sters, incercam sa gasim unul nesters in grup
             if (deletedIds.includes(id)) {{
                 let found = false;
                 for(let i=0; i<currentGroup.length; i++) {{
                     if(!deletedIds.includes(currentGroup[i])) {{
-                        currentIndex = i;
-                        id = currentGroup[i];
-                        found = true;
-                        break;
+                        currentIndex = i; id = currentGroup[i]; found = true; break;
                     }}
                 }}
                 if(!found) {{ closePanel(); return; }}
@@ -211,10 +198,8 @@ script_inject = f"""
                 "<b>Start:</b> " + r.startort + "<br>" +
                 "<b>Dest:</b> " + r.zielort;
             
-            // Calculam cate rute nesterse mai sunt in grup
             let activeInGroup = currentGroup.filter(idx => !deletedIds.includes(idx));
             let currentPos = activeInGroup.indexOf(id) + 1;
-            
             document.getElementById('panel-counter').innerText = currentPos + "/" + activeInGroup.length;
             drawLine();
         }};
@@ -223,10 +208,7 @@ script_inject = f"""
             let startPos = currentIndex;
             do {{
                 currentIndex = (currentIndex + 1) % currentGroup.length;
-                if (!deletedIds.includes(currentGroup[currentIndex])) {{
-                    updatePanel();
-                    return;
-                }}
+                if (!deletedIds.includes(currentGroup[currentIndex])) {{ updatePanel(); return; }}
             }} while (currentIndex !== startPos);
         }};
 
@@ -234,10 +216,7 @@ script_inject = f"""
             let startPos = currentIndex;
             do {{
                 currentIndex = (currentIndex - 1 + currentGroup.length) % currentGroup.length;
-                if (!deletedIds.includes(currentGroup[currentIndex])) {{
-                    updatePanel();
-                    return;
-                }}
+                if (!deletedIds.includes(currentGroup[currentIndex])) {{ updatePanel(); return; }}
             }} while (currentIndex !== startPos);
         }};
 
@@ -246,10 +225,9 @@ script_inject = f"""
         plot.on('plotly_click', function(data){{
             var ids = data.points[0].customdata;
             if(Array.isArray(ids)) {{
-                // Filtram grupul sa nu contina ID-uri deja sterse
                 var activeIds = ids.filter(id => !deletedIds.includes(id));
                 if(activeIds.length > 0) {{
-                    currentGroup = ids; // Pastram grupul original pentru indexare
+                    currentGroup = ids;
                     currentIndex = ids.indexOf(activeIds[0]);
                     document.getElementById('custom-route-panel').style.display = 'block';
                     updatePanel();
