@@ -1,4 +1,5 @@
-name: build
+name: update onlogist
+
 on:
   workflow_dispatch:
 
@@ -19,7 +20,7 @@ jobs:
           pip install pandas plotly
 
       - name: Run script
-        run: python nume_fisierul_tau.py  # <-- Pune aici numele fisierului tau .py
+        run: python main.py
 
       - name: Commit and push changes
         run: |
