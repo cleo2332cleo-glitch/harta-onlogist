@@ -1,69 +1,65 @@
 import folium
-from folium import plugins
+import numpy as np
 
-# Presupunem că ai aceste date extrase din scriptul tău (Exemplu: de la Würzburg la Kassel)
-# Format: [lat, lng]
-start_coords = [49.7913, 9.9294] 
-end_coords = [51.3127, 9.4797]
+# Coordonate de test (Würzburg -> Kassel)
+start = [49.7913, 9.9294]
+end = [51.3127, 9.4797]
 
-# Creăm harta cu fundal Dark Mode pentru efectul Neon
-m = folium.Map(location=[(start_coords[0] + end_coords[0])/2, 
-                         (start_coords[1] + end_coords[1])/2], 
-               zoom_start=7, 
-               tiles='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-               attr='&copy; CartoDB')
+# 1. CREĂM HARTA (Ultra Dark Mode)
+m = folium.Map(
+    location=[(start[0] + end[0])/2, (start[1] + end[1])/2],
+    zoom_start=7,
+    tiles='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attr='&copy; CartoDB'
+)
 
-# --- LOGICA PENTRU LINIA CURBATĂ (BEZIER) ---
-# Generăm un punct de control pentru a "îndoi" linia spre dreapta/stânga
-control_point = [
-    (start_coords[0] + end_coords[0]) / 2 + 0.5, 
-    (start_coords[1] + end_coords[1]) / 2 + 0.8
-]
+# 2. FUNCȚIE PENTRU CURBĂ (Arc Digital)
+def create_arc(p1, p2, n_points=30):
+    # Generăm o curbă tip parabolă între puncte
+    lats = np.linspace(p1[0], p2[0], n_points)
+    lngs = np.linspace(p1[1], p2[1], n_points)
+    
+    # Adăugăm "burta" curbei (offset)
+    dist = np.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+    offset = np.sin(np.linspace(0, np.pi, n_points)) * (dist * 0.2)
+    
+    return [[lats[i], lngs[i] + offset[i]] for i in range(n_points)]
 
-# Script JS injectat pentru efectul de Glow și Curbă
-curve_script = f"""
-<script>
-    var pathData = "M {start_coords[1]} {start_coords[0]} Q {control_point[1]} {control_point[0]} {end_coords[1]} {end_coords[0]}";
-    // Folosim o librărie SVG internă sau manipulăm Layer-ul Leaflet după randare
-</script>
-"""
+arc_points = create_arc(start, end)
 
-# Adăugăm Linia cu Efect Neon (folosind PolyLine cu greutate mare și opacitate)
-# Pentru o curbă perfectă în Python Folium, folosim AntPath sau curbe matematice:
-path_coords = [start_coords, control_point, end_coords]
-
-# Linia principală Neon Albastră
+# 3. EFECTUL NEON (Stratificare)
+# Strat 1: Glow-ul (Linia de fundal, lată și transparentă)
 folium.PolyLine(
-    locations=[start_coords, end_coords], # Aici poți adăuga mai multe puncte dacă ai traseul real
-    color='#00f2ff',
-    weight=4,
-    opacity=0.8,
-    tooltip="Ruta Activă"
+    arc_points, 
+    color='#00f2ff', 
+    weight=12, 
+    opacity=0.2
 ).add_to(m)
 
-# --- MARKERE STILIZATE ---
+# Strat 2: Linia principală (Miezul luminos)
+folium.PolyLine(
+    arc_points, 
+    color='#00f2ff', 
+    weight=3, 
+    opacity=1,
+    tooltip="Livrare Activă"
+).add_to(m)
 
-# START: Cerc Radiant (Neon Dot)
+# 4. MARKERE MODERNE
+# Start: Punct de lumină
 folium.CircleMarker(
-    location=start_coords,
-    radius=6,
+    location=start,
+    radius=5,
     color='#00f2ff',
     fill=True,
-    fill_color='#00f2ff',
-    fill_opacity=0.9,
-    popup="Punct Plecare"
+    fill_opacity=1
 ).add_to(m)
 
-# DESTINAȚIE: Steag (Custom Icon)
+# Destinație: Steag (Custom Icon)
 folium.Marker(
-    location=end_coords,
+    location=end,
     icon=folium.Icon(color='red', icon='flag', prefix='fa'),
-    popup="Destinație Finală"
 ).add_to(m)
 
-# Adăugăm un efect de puls pe destinație
-plugins.BeautifyIcon(icon='arrow-down', border_color='#ff0055', text_color='#ff0055').add_to(m)
-
-# Salvăm rezultatul
+# 5. SALVARE
 m.save("harta_prologistics_2026.html")
-print("Harta a fost generată! Deschide harta_prologistics_2026.html")
