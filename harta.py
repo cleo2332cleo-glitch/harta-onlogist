@@ -21,11 +21,15 @@ def parse_coords(coord_str):
 df = pd.read_csv(URL_SHEETS)
 
 # --- REPARARE EROARE COLOANE ---
-# Aceasta linie sterge spatiile goale invizibile din numele coloanelor
+# Sterge spatiile goale invizibile din numele coloanelor (previne KeyError)
 df.columns = df.columns.str.strip()
 
+# Citeste din noile coloane I si J (Coord_Start si Coord_Ziel)
+# Pandas le gaseste dupa nume, indiferent ca sunt in I sau J
 df['start_lon'], df['start_lat'] = zip(*df['Coord_Start'].apply(parse_coords))
 df['ziel_lon'], df['ziel_lat'] = zip(*df['Coord_Ziel'].apply(parse_coords))
+
+# Eliminam randurile fara coordonate valide
 df = df.dropna(subset=['start_lon', 'start_lat', 'ziel_lon', 'ziel_lat'])
 
 locations_data = {}
@@ -43,7 +47,7 @@ for i, row in df.iterrows():
         'ziel': [row['ziel_lon'], row['ziel_lat']]
     }
 
-# --- GRUPARE ---
+# --- GRUPARE PUNCTE ---
 grouped_starts = df.groupby(['start_lat', 'start_lon'])
 s_lons, s_lats, s_texts, s_ids = [], [], [], []
 for (lat, lon), group in grouped_starts:
@@ -90,7 +94,7 @@ html_content = fig.to_html(
 )
 json_coords = json.dumps(locations_data)
 
-# CSS Versiunea "MINI" cu butonul CLEAR distantat (25px)
+# Injectare script si CSS (Buton CLEAR la distanta de 25px)
 script_inject = f"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
