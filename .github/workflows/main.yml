@@ -3,7 +3,7 @@ name: Generare Harta Neon 2026
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: # Îți permite să rulezi scriptul manual de pe GitHub
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Update la v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # Update la v5
         with:
           python-version: '3.9'
 
@@ -27,7 +27,7 @@ jobs:
         run: python harta.py
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # ASTA ERA PROBLEMA - acum e v4
         with:
           name: harta-interactiva
           path: harta_prologistics_2026.html
